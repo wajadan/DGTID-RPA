@@ -1,0 +1,360 @@
+{
+  "name": "Pipeline de datos multi-fuente",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 2
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -336,
+        144
+      ],
+      "id": "e702203f-9913-4220-81d7-f6dd80326336",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        128,
+        -192
+      ],
+      "id": "86087816-326b-4a19-981c-92a68db6066c",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "url": "https://restcountries.com/v3.1/alpha?codes=ec,co,pe",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        224,
+        192
+      ],
+      "id": "9d9a5c78-9ec0-477d-8e0a-d9beaca44e72",
+      "name": "Indicadores_pais (REST Countries)",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://openlibrary.org/search.json?q=automatización+de+procesos&mode=everything",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        240,
+        400
+      ],
+      "id": "8a2ffe05-51bf-4bcd-9c57-c9a5bd4aa403",
+      "name": "Recursos_Academicos (Open Library)",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Arreglo de paises, se obtiene con la respuesta de la APU\nconst paises = $input.all();\n\n//ERROR\nif(items[0].json.error || items[0].error || !Array.isArray(items)){\n  return[{\n    json: {\n      contexto_pais:{\n        error:{\n          nodo: \"Indicadores_pais (Rest Countries)\",\n          mensaje: \"URL invalida\"\n        }\n      }\n    }\n  }];\n}\n\n    // Mapear datos\n  const datos_Limpios = paises.map( p =>{\n    //Extrae la informacion del pais en cada item\n  const pais = p.json;\n    \n    //Extrae la primera moneda e idioma\n    const moneda = Object.values(pais.currencies || {})[0]?.name || \"Desconocida\";\n    const idioma = Object.values(pais.languages || {})[0] || \"Desconocido\";\n  \n    return{\n      pais: pais.name.common,\n      poblacion: pais.population,\n      area: pais.area,\n      densidad: Math.round(pais.population / pais.area),\n      moneda: moneda,\n      idioma_oficial: idioma\n    };\n  })\n  \n  return[{ json: {indicadores: datos_Limpios} }];\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        464,
+        192
+      ],
+      "id": "9cb3bb65-206b-4f62-820c-f6896c81ab3e",
+      "name": "filtrar_datos"
+    },
+    {
+      "parameters": {
+        "jsCode": "// la API devuelve los libros\nconst libros = $input.all();\n\n//ERROR\nif(libros[0].json.error || libros[0].error || !libros[0].json.docs){\n  return[{\n    recursos_academicos:{\n      error:{\n        nodo: \"Recursos_Academicos (Open Library)\",\n        mensaje: \"URL invalida\"\n      }\n    }\n  }];\n}\n\n//Filtrar años >= 2015\nconst libros_Recientes = libros[0].json.docs\n  .filter(libro => libro.first_publish_year >= 2015)\n  // mapea los datos de Titulo: autor, fecha\n  .map(libro => ({\n    titulo: libro.title,\n    autor: libro.author_key ? libro.author_name[0] : \"Autor Desconocido\",\n    año: libro.first_publish_year\n  })) ;\n\nreturn [{ json: {bibliografia: libros_Recientes}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        400
+      ],
+      "id": "6348e263-e88e-4829-a098-bf6f4eb70845",
+      "name": "filtrar_datos1"
+    },
+    {
+      "parameters": {
+        "jsCode": "return[\n  {\"ciudad_nombre\": \"Loja\", \"latitud\": -3.9931, \"longitud\": -79.2042},\n  {\"ciudad_nombre\": \"Quito\", \"latitud\": -0.2298, \"longitud\": -78.525},\n  {\"ciudad_nombre\": \"Cuenca\", \"latitud\": -2.8953, \"longitud\": -78.9963},\n  {\"ciudad_nombre\": \"Saraguro\", \"latitud\": -3.6246, \"longitud\": -79.2392},\n  {\"ciudad_nombre\": \"Catamayo\", \"latitud\": -3.9866, \"longitud\": -79.3576}\n]\t"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        -160
+      ],
+      "id": "2f98c148-bf36-4c4a-9f3b-6dffdb29ed2c",
+      "name": "Array_ciudades"
+    },
+    {
+      "parameters": {
+        "url": "https://api.open-meteo.com/v1/forecast",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "latitude",
+              "value": "={{ $json.latitud }}"
+            },
+            {
+              "name": "longitude",
+              "value": "={{ $json.longitud }}"
+            },
+            {
+              "name": "current_weather",
+              "value": "=true"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        272,
+        -48
+      ],
+      "id": "a8c9dfdc-bbe4-4cec-8682-d844ad21e7d8",
+      "name": "Clima multi-ciudad (Open-Meteo)",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "//debe devolver un nuevo array con los datos procesados\n\n// Se envian los datos que salen del Loop\nconst items = $input.all();\n\n//CODIGO PARA ERROR\nif(items[0].json.error || items[0].error ||\n  !items[0].json.current_weather){\n  return [{\n    json: {\n      clima_regional: {\n        error: {\n          nodo: \"Clima multi-ciudad (Open-Meteo)\",\n          mensaje: \"URL invalida\"\n        }\n      }\n    }\n  }];\n  }\n\nconst temperaturas = items.map(item => ({\n  ciudad: item.json.ciudad_nombre,\n  temperatura: item.json.current_weather.temperature,\n  viento: item.json.current_weather.windspeed\n}));\n\n//Extraer numeros de temperatura para los calculos\nconst temps = temperaturas.map(t => t.temperatura);\n\n//CALCULAR promedio\nconst promedio = temps.reduce((a,b) => a + b,0) / temps.length;\n// Segundo calculo de promedio, esto redondea a un decimal\nconst promedio_2 = Math.round(promedio * 10) /10;\n\n// TODO: calcular ciudad_mas_caliente y ciudad_mas_fria\n// TODO: redondear promedio a un decimal\n\n//Maximo\nconst maximo = Math.max(...temps);\n//Minimo\nconst minimo = Math.min(...temps);\n\n//OBTENER ciudad mas caliente\nconst ciudad_caliente = temperaturas.find(t => t.temperatura === maximo)?.ciudad || \"Desconocido\";\n\n//OBTENER ciudad mas fria\nconst ciudad_fria = temperaturas.find(t => t.temperatura === minimo)?.ciudad || \"Desconocido\";\n\n// MENSAJE\nreturn[{\n  json: {\n    clima_regional: {\n      ciudades_detalle: temperaturas,\n      estadisticas: {\n        promedio: promedio_2,\n        maximo: maximo,\n        minimo: minimo,\n        ciudad_mas_caliente: ciudad_caliente,\n        ciudad_mas_fria: ciudad_fria\n      }\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        -208
+      ],
+      "id": "55e67740-c231-4eed-8881-a90d4c46cd2c",
+      "name": "Procesar_datos"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        768,
+        80
+      ],
+      "id": "c06126f2-8464-4f51-ad34-d87b2d611604",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\n//Preparar variables vacias\nlet clima = {};\nlet pais = {};\nlet libro = {};\n\n//VARIABLES para detectar ERRORES\nlet error = [];\n\n// Almacenar los datos de clima, pais y libro\nitems.forEach(i => {\n  //json. \"Nombre de las variables que exportan los resultados, resiva los nodos anteriores\"\n  // RAMA 1\n  if(i.json.clima_regional) {\n    if(i.json.clima_regional.error){\n      error.push(i.json.clima_regional.error);\n      clima = {estado:\"incompleto\"};\n    }else{\n      clima = i.json.clima_regional;\n    }\n  }\n\n  //RAMA 2\n  if(i.json.indicadores){\n    pais = i.json.indicadores;\n    \n  } else if (i.json.contexto_pais?.error){\n    error.push(i.json.contexto_pais.error);\n    pais= {estado: \"incompleto\"};\n  }\n\n  //RAMA 3\n  if(i.json.bibliografia){\n    libro = i.json.bibliografia;\n  \n  } else if(i.json.recursos_academicos?.error){\n    error.push(i.json.recursos_academicos?.error);\n    libro={estado:\"incompleto\"};\n  }\n\n});\n\n// Obtener tiempo actual \nconst tiempo_Actual = new Date().toISOString();\n\n// Salida json\nconst reporte_estructura = {\n  reporte: {\n    version: \"1.0\",\n    timestamp: tiempo_Actual,\n    estado: error.length > 0 ? \"incompleto\":\"completo\",\n    fuentes: [\"open-meteo\",\"rest-countries\",\"open-library\"],\n    clima_regional: clima,\n    contexto_pais: pais,\n    recursos_academicos: libro\n  }\n};\n\n//En caso de error\nif(error.length > 0){\n  reporte_estructura.reporte.detalles_error = error;\n}\n\nreturn [{ json: reporte_estructura}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        976,
+        80
+      ],
+      "id": "c0b7a757-ffe3-4301-aefd-ddfc6f90f0c5",
+      "name": "Exportar_json"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a09c9e61-93b1-4638-af2e-2c25ebd3c2e1",
+              "name": "ciudad_nombre",
+              "value": "={{ $('Loop Over Items').first().json.ciudad_nombre }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        416,
+        -48
+      ],
+      "id": "b8399a37-fa11-41b0-9951-a45955954d23",
+      "name": "Edit Fields1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Array_ciudades",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Indicadores_pais (REST Countries)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Recursos_Academicos (Open Library)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Procesar_datos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Clima multi-ciudad (Open-Meteo)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Indicadores_pais (REST Countries)": {
+      "main": [
+        [
+          {
+            "node": "filtrar_datos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Recursos_Academicos (Open Library)": {
+      "main": [
+        [
+          {
+            "node": "filtrar_datos1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Array_ciudades": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clima multi-ciudad (Open-Meteo)": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Procesar_datos": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "filtrar_datos": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "filtrar_datos1": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Exportar_json",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "FcpzrhIt695FgLDQ",
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionTimeout": -1,
+    "availableInMCP": false
+  },
+  "versionId": "2bbc388f-43e4-4edd-b79f-06f61ccfea34",
+  "meta": {
+    "instanceId": "c1d061b2eef4d25bab4434dcfc4820ff8a619e005912af90edb2c268ae6de2cb"
+  },
+  "id": "FcpzrhIt695FgLDQ",
+  "tags": []
+}
