@@ -1,0 +1,805 @@
+{
+  "name": "EXTRACTOR ANUAL",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "months"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -240,
+        -48
+      ],
+      "id": "0b3eca0d-3dd2-468f-9262-05bf7d23ee37",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "options": {
+          "sheetName": "PIB pc real"
+        }
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        288,
+        -240
+      ],
+      "id": "46a46df1-1768-4dc0-8ccf-707701b33e28",
+      "name": "Extraer PIB pc real"
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "options": {
+          "sheetName": "PIB pc nominal"
+        }
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        288,
+        -64
+      ],
+      "id": "9f756a20-03f5-430f-a98a-417137c32ea7",
+      "name": "Extraer PIB pc nominal"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawItems = $input.all();\nconst listaConsolidada = [];\n\n// Expresión regular para validar que la fila empiece con un año de 4 dígitos\nconst regexAnio = /^\\d{4}/;\n\nfor (const item of rawItems) {\n  const data = item.json;\n  const anioRaw = data.__EMPTY ? data.__EMPTY.toString().trim() : \"\";\n\n  // FILTRO INTELIGENTE: Si no empieza con año, es basura\n  if (!regexAnio.test(anioRaw)) {\n    continue;\n  }\n\n  const pibRealMillones = parseFloat(data.__EMPTY_1);\n  const poblacion = parseFloat(data.__EMPTY_2);\n  const pibPcRealUsd = parseFloat(data.__EMPTY_3);\n  const tasaVariacion = parseFloat(data.__EMPTY_4);\n\n  listaConsolidada.push({\n    json: {\n      INDICADOR: \"PIB_REAL_PER_CAPITA\",\n      FECHA_FISCAL: anioRaw,         // ◄--- NUEVA: El año como clave primaria lógica\n      FECHA_EXTRACCION: new Date(),   // Objeto Date nativo corregido\n      ESTADO: \"COMPLETO\",\n      NECESITA_RESPALDO: 0,           // Tipo número corregido\n      DETALLE_ERROR: \"\",\n      DATOS_JSON: JSON.stringify({\n        fecha_fiscal: anioRaw, \n        pib_real_millones: isNaN(pibRealMillones) ? null : pibRealMillones,\n        poblacion_total: isNaN(poblacion) ? null : poblacion,\n        pib_pc_real_usd: isNaN(pibPcRealUsd) ? null : pibPcRealUsd,\n        tasa_variacion_anual: isNaN(tasaVariacion) ? null : tasaVariacion,\n        fuente: \"Banco Central del Ecuador\",\n        ruta_logica: \"BCE/CUENTAS_NACIONALES/PIB_PC_REAL\"\n      })\n    }\n  });\n}\n\nreturn listaConsolidada;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        496,
+        -240
+      ],
+      "id": "82d123e3-164e-486c-b4b2-a1b109948b0d",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawItems = $input.all();\nconst listaConsolidada = [];\nconst regexAnio = /^\\d{4}/;\n\nfor (const item of rawItems) {\n  const data = item.json;\n  const anioRaw = data.__EMPTY ? data.__EMPTY.toString().trim() : \"\";\n\n  if (!regexAnio.test(anioRaw)) {\n    continue;\n  }\n\n  const pibNominalMillones = parseFloat(data.__EMPTY_1);\n  const poblacion = parseFloat(data.__EMPTY_2);\n  const pibPcNominalUsd = parseFloat(data.__EMPTY_3);\n  const tasaVariacionNominal = parseFloat(data.__EMPTY_4);\n\n  listaConsolidada.push({\n    json: {\n      INDICADOR: \"PIB_NOMINAL_PER_CAPITA\",\n      FECHA_FISCAL: anioRaw,         // ◄--- NUEVA: El año como clave primaria lógica\n      FECHA_EXTRACCION: new Date(),   // Objeto Date nativo corregido\n      ESTADO: \"COMPLETO\",\n      NECESITA_RESPALDO: 0,           // Tipo número corregido\n      DETALLE_ERROR: \"\",\n      DATOS_JSON: JSON.stringify({\n        fecha_fiscal: anioRaw,\n        pib_nominal_millones: isNaN(pibNominalMillones) ? null : pibNominalMillones,\n        poblacion_total: isNaN(poblacion) ? null : poblacion,\n        pib_pc_nominal_usd: isNaN(pibPcNominalUsd) ? null : pibPcNominalUsd,\n        tasa_variacion_anual: isNaN(tasaVariacionNominal) ? null : tasaVariacionNominal,\n        fuente: \"Banco Central del Ecuador\",\n        ruta_logica: \"BCE/CUENTAS_NACIONALES/PIB_PC_NOMINAl\"\n      })\n    }\n  });\n}\n\nreturn listaConsolidada;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        496,
+        -64
+      ],
+      "id": "4f358a16-346c-4b7c-af37-f78bfe99f954",
+      "name": "Code1"
+    },
+    {
+      "parameters": {
+        "url": "https://contenido.bce.fin.ec/documentos/informacioneconomica/cuentasnacionales/anuales/retropolacion_1965_2024p.xlsx",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -32,
+        -48
+      ],
+      "id": "69997e54-87c1-4229-817f-73a9e0b1f899",
+      "name": "HTTP PIB real, PIB per cápita",
+      "retryOnFail": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://contenido.bce.fin.ec/documentos/informacioneconomica/cuentasnacionales/anuales/bam_mei_2018_2024p.xlsx",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -32,
+        224
+      ],
+      "id": "77ad3bc6-3b01-41c3-8139-9780029d2156",
+      "name": "HTTP Matriz Empleo e Ingresos",
+      "retryOnFail": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "options": {
+          "sheetName": "VAB"
+        }
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        176,
+        336
+      ],
+      "id": "cdd5f071-c33f-465f-bbe4-a4a968c02dc5",
+      "name": "Extraer VAB"
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "options": {
+          "sheetName": "TOTAL EMPLEO"
+        }
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        176,
+        128
+      ],
+      "id": "13612101-b2a3-4633-ac7c-801b7fd6595f",
+      "name": "Extraer Total Empleo"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawItems = $input.all();\nconst listaConsolidada = [];\n\nfunction parsearNumeroExcel(val) {\n  if (val === undefined || val === null || val === '') return null;\n  if (typeof val === 'number') return val;\n  const limpio = val.toString().replace(/,/g, '').trim();\n  const num = parseFloat(limpio);\n  return isNaN(num) ? null : num;\n}\n\nfor (const item of rawItems) {\n  const data = item.json;\n  \n  const seccionCiiu = data.__EMPTY ? data.__EMPTY.toString().trim() : \"\";\n  const cie = data.__EMPTY_1 ? data.__EMPTY_1.toString().trim() : \"\";\n  const industria = data.__EMPTY_2 ? data.__EMPTY_2.toString().trim() : \"\";\n\n  if (!industria || industria === \"Industria\" || industria.includes(\"Puestos de trabajo\")) {\n    continue;\n  }\n\n  // Generamos un identificador único para la industria que quepa en VARCHAR2(50)\n  const idIndustriaClave = (cie || industria).substring(0, 50);\n\n  if (industria === \"Total Empleo\") {\n    listaConsolidada.push({\n      json: {\n        INDICADOR: \"MEI_TOTAL_EMPLEO_NUR\",\n        FECHA_FISCAL: idIndustriaClave, // ◄--- NUEVA: Evita duplicar esta industria horizontal\n        FECHA_EXTRACCION: new Date(),\n        ESTADO: \"COMPLETO\",\n        NECESITA_RESPALDO: 0,\n        DETALLE_ERROR: \"\",\n        DATOS_JSON: JSON.stringify({\n          seccion_ciiu: seccionCiiu,\n          cie: cie,\n          industria: industria,\n          valores_anuales: {\n            2018: parsearNumeroExcel(data.__EMPTY_3),\n            2019: parsearNumeroExcel(data.__EMPTY_4),\n            2020: parsearNumeroExcel(data.__EMPTY_5),\n            2021: parsearNumeroExcel(data.__EMPTY_6),\n            2022: parsearNumeroExcel(data.__EMPTY_7),\n            2023: parsearNumeroExcel(data.__EMPTY_8),\n            2024: parsearNumeroExcel(data.__EMPTY_9)\n          },\n          fuente: \"Banco Central del Ecuador\",\n          ruta_logica: \"BCE/CUENTAS_NACIONALES/MEI_TOTAL_EMPLEO\"\n        })\n      }\n    });\n    break; \n  }\n\n  listaConsolidada.push({\n    json: {\n      INDICADOR: \"MEI_EMPLEO_SECTORIAL\",\n      FECHA_FISCAL: idIndustriaClave,   // ◄--- NUEVA: Mapeo por sector\n      FECHA_EXTRACCION: new Date(),\n      ESTADO: \"COMPLETO\",\n      NECESITA_RESPALDO: 0,\n      DETALLE_ERROR: \"\",\n      DATOS_JSON: JSON.stringify({\n        seccion_ciiu: seccionCiiu,\n        cie: cie,\n        industria: industria,\n        valores_anuales: {\n          2018: parsearNumeroExcel(data.__EMPTY_3),\n          2019: parsearNumeroExcel(data.__EMPTY_4),\n          2020: parsearNumeroExcel(data.__EMPTY_5),\n          2021: parsearNumeroExcel(data.__EMPTY_6),\n          2022: parsearNumeroExcel(data.__EMPTY_7),\n          2023: parsearNumeroExcel(data.__EMPTY_8),\n          2024: parsearNumeroExcel(data.__EMPTY_9)\n        },\n        fuente: \"Banco Central del Ecuador\",\n        ruta_logica: \"BCE/CUENTAS_NACIONALES/MEI_TOTAL_EMPLEO\"\n      })\n    }\n  });\n}\n\nreturn listaConsolidada;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        384,
+        128
+      ],
+      "id": "639db1ee-de01-4c9f-a7d4-d0a94bff885c",
+      "name": "Code2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawItems = $input.all();\nconst listaConsolidada = [];\n\nfunction parsearNumeroExcel(val) {\n  if (val === undefined || val === null || val === '') return null;\n  if (typeof val === 'number') return val;\n  const limpio = val.toString().replace(/,/g, '').trim();\n  const num = parseFloat(limpio);\n  return isNaN(num) ? null : num;\n}\n\nfor (const item of rawItems) {\n  const data = item.json;\n  \n  const ciiu = data.__EMPTY ? data.__EMPTY.toString().trim() : \"\";\n  const cie = data.__EMPTY_1 ? data.__EMPTY_1.toString().trim() : \"\";\n  const industria = data.__EMPTY_2 ? data.__EMPTY_2.toString().trim() : \"\";\n\n  if (!industria || industria === \"Industria\" || industria.includes(\"VALOR AGREGADO\")) {\n    continue;\n  }\n\n  const idVabClave = (cie || industria).substring(0, 50);\n\n  if (industria === \"Valor Agregado Total\") {\n    listaConsolidada.push({\n      json: {\n        INDICADOR: \"MEI_VAB_TOTAL\",\n        FECHA_FISCAL: idVabClave,       // ◄--- NUEVA: Unicidad del gran total\n        FECHA_EXTRACCION: new Date(),\n        ESTADO: \"COMPLETO\",\n        NECESITA_RESPALDO: 0,\n        DETALLE_ERROR: \"\",\n        DATOS_JSON: JSON.stringify({\n          ciiu: ciiu,\n          cie: cie,\n          industria: industria,\n          valores_anuales: {\n            2018: parsearNumeroExcel(data.__EMPTY_3),\n            2019: parsearNumeroExcel(data.__EMPTY_4),\n            2020: parsearNumeroExcel(data.__EMPTY_5),\n            2021: parsearNumeroExcel(data.__EMPTY_6),\n            2022: parsearNumeroExcel(data.__EMPTY_7),\n            2023: parsearNumeroExcel(data.__EMPTY_8),\n            2024: parsearNumeroExcel(data.__EMPTY_9)\n          },\n          fuente: \"Banco Central del Ecuador\",\n          ruta_logica: \"BCE/CUENTAS_NACIONALES/MEI_VAB\"\n        })\n      }\n    });\n    break; \n  }\n\n  listaConsolidada.push({\n    json: {\n      INDICADOR: \"MEI_VAB_SECTORIAL\",\n      FECHA_FISCAL: idVabClave,         // ◄--- NUEVA: Unicidad por sector industrial\n      FECHA_EXTRACCION: new Date(),\n      ESTADO: \"COMPLETO\",\n      NECESITA_RESPALDO: 0,\n      DETALLE_ERROR: \"\",\n      DATOS_JSON: JSON.stringify({\n        ciiu: ciiu,\n        cie: cie,\n        industria: industria,\n        valores_anuales: {\n          2018: parsearNumeroExcel(data.__EMPTY_3),\n          2019: parsearNumeroExcel(data.__EMPTY_4),\n          2020: parsearNumeroExcel(data.__EMPTY_5),\n          2021: parsearNumeroExcel(data.__EMPTY_6),\n          2022: parsearNumeroExcel(data.__EMPTY_7),\n          2023: parsearNumeroExcel(data.__EMPTY_8),\n          2024: parsearNumeroExcel(data.__EMPTY_9)\n        },\n        fuente: \"Banco Central del Ecuador\",\n        ruta_logica: \"BCE/CUENTAS_NACIONALES/MEI_VAB\"\n      })\n    }\n  });\n}\n\nreturn listaConsolidada;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        384,
+        336
+      ],
+      "id": "0c21bdd5-4406-4bb1-86f6-480d91fb0400",
+      "name": "Code3"
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "schema": {
+          "__rl": true,
+          "value": "ADMIN",
+          "mode": "list",
+          "cachedResultName": "ADMIN"
+        },
+        "table": {
+          "__rl": true,
+          "value": "TAB_CONSOLIDADO_MACRO",
+          "mode": "list",
+          "cachedResultName": "TAB_CONSOLIDADO_MACRO"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {
+            "NECESITA_RESPALDO": 0,
+            "ID": 0
+          },
+          "matchingColumns": [
+            "FECHA_FISCAL",
+            "INDICADOR"
+          ],
+          "schema": [
+            {
+              "id": "DATOS_JSON",
+              "displayName": "DATOS_JSON",
+              "required": false,
+              "display": true,
+              "type": "object",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "DETALLE_ERROR",
+              "displayName": "DETALLE_ERROR",
+              "required": false,
+              "display": true,
+              "type": "string",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ESTADO",
+              "displayName": "ESTADO",
+              "required": true,
+              "display": true,
+              "type": "string",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "FECHA_EXTRACCION",
+              "displayName": "FECHA_EXTRACCION",
+              "required": true,
+              "display": true,
+              "type": "dateTime",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "FECHA_FISCAL",
+              "displayName": "FECHA_FISCAL",
+              "required": false,
+              "display": true,
+              "type": "string",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ID",
+              "displayName": "ID",
+              "required": false,
+              "display": true,
+              "type": "number",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "INDICADOR",
+              "displayName": "INDICADOR",
+              "required": true,
+              "display": true,
+              "type": "string",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "NECESITA_RESPALDO",
+              "displayName": "NECESITA_RESPALDO",
+              "required": true,
+              "display": true,
+              "type": "number",
+              "defaultMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.oracleDatabase",
+      "typeVersion": 1,
+      "position": [
+        672,
+        -256
+      ],
+      "id": "f3d64bed-79c0-4862-8a27-fdc935469aac",
+      "name": "Insert or update rows in a table",
+      "credentials": {
+        "oracleDBApi": {
+          "id": "qByKeiuIh1btIyqA",
+          "name": "Oracle Database Credenciales"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "schema": {
+          "__rl": true,
+          "value": "ADMIN",
+          "mode": "list",
+          "cachedResultName": "ADMIN"
+        },
+        "table": {
+          "__rl": true,
+          "value": "TAB_CONSOLIDADO_MACRO",
+          "mode": "list",
+          "cachedResultName": "TAB_CONSOLIDADO_MACRO"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {
+            "NECESITA_RESPALDO": 0,
+            "ID": 0
+          },
+          "matchingColumns": [
+            "FECHA_FISCAL",
+            "INDICADOR"
+          ],
+          "schema": [
+            {
+              "id": "DATOS_JSON",
+              "displayName": "DATOS_JSON",
+              "required": false,
+              "display": true,
+              "type": "object",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "DETALLE_ERROR",
+              "displayName": "DETALLE_ERROR",
+              "required": false,
+              "display": true,
+              "type": "string",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ESTADO",
+              "displayName": "ESTADO",
+              "required": true,
+              "display": true,
+              "type": "string",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "FECHA_EXTRACCION",
+              "displayName": "FECHA_EXTRACCION",
+              "required": true,
+              "display": true,
+              "type": "dateTime",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "FECHA_FISCAL",
+              "displayName": "FECHA_FISCAL",
+              "required": false,
+              "display": true,
+              "type": "string",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ID",
+              "displayName": "ID",
+              "required": false,
+              "display": true,
+              "type": "number",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "INDICADOR",
+              "displayName": "INDICADOR",
+              "required": true,
+              "display": true,
+              "type": "string",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "NECESITA_RESPALDO",
+              "displayName": "NECESITA_RESPALDO",
+              "required": true,
+              "display": true,
+              "type": "number",
+              "defaultMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.oracleDatabase",
+      "typeVersion": 1,
+      "position": [
+        704,
+        -64
+      ],
+      "id": "9cf95204-de3d-4e98-bc24-62b361a2c131",
+      "name": "Insert or update rows in a table1",
+      "credentials": {
+        "oracleDBApi": {
+          "id": "qByKeiuIh1btIyqA",
+          "name": "Oracle Database Credenciales"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "schema": {
+          "__rl": true,
+          "value": "ADMIN",
+          "mode": "list",
+          "cachedResultName": "ADMIN"
+        },
+        "table": {
+          "__rl": true,
+          "value": "TAB_CONSOLIDADO_MACRO",
+          "mode": "list",
+          "cachedResultName": "TAB_CONSOLIDADO_MACRO"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {
+            "NECESITA_RESPALDO": 0,
+            "ID": 0
+          },
+          "matchingColumns": [
+            "FECHA_FISCAL",
+            "INDICADOR"
+          ],
+          "schema": [
+            {
+              "id": "DATOS_JSON",
+              "displayName": "DATOS_JSON",
+              "required": false,
+              "display": true,
+              "type": "object",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "DETALLE_ERROR",
+              "displayName": "DETALLE_ERROR",
+              "required": false,
+              "display": true,
+              "type": "string",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ESTADO",
+              "displayName": "ESTADO",
+              "required": true,
+              "display": true,
+              "type": "string",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "FECHA_EXTRACCION",
+              "displayName": "FECHA_EXTRACCION",
+              "required": true,
+              "display": true,
+              "type": "dateTime",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "FECHA_FISCAL",
+              "displayName": "FECHA_FISCAL",
+              "required": false,
+              "display": true,
+              "type": "string",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ID",
+              "displayName": "ID",
+              "required": false,
+              "display": true,
+              "type": "number",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "INDICADOR",
+              "displayName": "INDICADOR",
+              "required": true,
+              "display": true,
+              "type": "string",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "NECESITA_RESPALDO",
+              "displayName": "NECESITA_RESPALDO",
+              "required": true,
+              "display": true,
+              "type": "number",
+              "defaultMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.oracleDatabase",
+      "typeVersion": 1,
+      "position": [
+        592,
+        128
+      ],
+      "id": "88c567ab-2d1a-4952-a687-cbc30bc4ad09",
+      "name": "Insert or update rows in a table2",
+      "credentials": {
+        "oracleDBApi": {
+          "id": "qByKeiuIh1btIyqA",
+          "name": "Oracle Database Credenciales"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "schema": {
+          "__rl": true,
+          "value": "ADMIN",
+          "mode": "list",
+          "cachedResultName": "ADMIN"
+        },
+        "table": {
+          "__rl": true,
+          "value": "TAB_CONSOLIDADO_MACRO",
+          "mode": "list",
+          "cachedResultName": "TAB_CONSOLIDADO_MACRO"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {
+            "NECESITA_RESPALDO": 0,
+            "ID": 0
+          },
+          "matchingColumns": [
+            "FECHA_FISCAL",
+            "INDICADOR"
+          ],
+          "schema": [
+            {
+              "id": "DATOS_JSON",
+              "displayName": "DATOS_JSON",
+              "required": false,
+              "display": true,
+              "type": "object",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "DETALLE_ERROR",
+              "displayName": "DETALLE_ERROR",
+              "required": false,
+              "display": true,
+              "type": "string",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ESTADO",
+              "displayName": "ESTADO",
+              "required": true,
+              "display": true,
+              "type": "string",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "FECHA_EXTRACCION",
+              "displayName": "FECHA_EXTRACCION",
+              "required": true,
+              "display": true,
+              "type": "dateTime",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "FECHA_FISCAL",
+              "displayName": "FECHA_FISCAL",
+              "required": false,
+              "display": true,
+              "type": "string",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ID",
+              "displayName": "ID",
+              "required": false,
+              "display": true,
+              "type": "number",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "INDICADOR",
+              "displayName": "INDICADOR",
+              "required": true,
+              "display": true,
+              "type": "string",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "NECESITA_RESPALDO",
+              "displayName": "NECESITA_RESPALDO",
+              "required": true,
+              "display": true,
+              "type": "number",
+              "defaultMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.oracleDatabase",
+      "typeVersion": 1,
+      "position": [
+        592,
+        336
+      ],
+      "id": "f19834ef-b266-4b0f-933e-271d8b4ab345",
+      "name": "Insert or update rows in a table3",
+      "credentials": {
+        "oracleDBApi": {
+          "id": "qByKeiuIh1btIyqA",
+          "name": "Oracle Database Credenciales"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP PIB real, PIB per cápita",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "HTTP Matriz Empleo e Ingresos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer PIB pc real": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer PIB pc nominal": {
+      "main": [
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP PIB real, PIB per cápita": {
+      "main": [
+        [
+          {
+            "node": "Extraer PIB pc real",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Extraer PIB pc nominal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Matriz Empleo e Ingresos": {
+      "main": [
+        [
+          {
+            "node": "Extraer Total Empleo",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Extraer VAB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer Total Empleo": {
+      "main": [
+        [
+          {
+            "node": "Code2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer VAB": {
+      "main": [
+        [
+          {
+            "node": "Code3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Insert or update rows in a table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "node": "Insert or update rows in a table1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code2": {
+      "main": [
+        [
+          {
+            "node": "Insert or update rows in a table2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code3": {
+      "main": [
+        [
+          {
+            "node": "Insert or update rows in a table3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "40416138-7ea4-4922-8e95-9355ba025b15",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c1d061b2eef4d25bab4434dcfc4820ff8a619e005912af90edb2c268ae6de2cb"
+  },
+  "id": "8VcnsXJ8t6VaAWUS",
+  "tags": []
+}

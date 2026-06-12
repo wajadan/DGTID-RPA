@@ -1,0 +1,253 @@
+{
+  "name": "Extractor mensual",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "months"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -336,
+        -32
+      ],
+      "id": "125678b9-79ed-43dd-8d96-410f1a42234f",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawItems = $input.all();\nconst listaConsolidada = [];\n\nfor (const item of rawItems) {\n  const data = item.json;\n  \n  // 1. FILTRO DE CABECERA: Ignoramos la fila de texto donde dice \"Fecha\"\n  if (data.__EMPTY === 'Fecha' || !data.__EMPTY) {\n    continue;\n  }\n  \n  // 2. FILTRO DE PIE DE PÁGINA: Las fechas reales del BCE vienen como \"YYYY-MM-DD\" (ej: 2010-02-01)\n  // Si la celda no tiene un guion, significa que es una nota aclaratoria del final del Excel\n  if (!data.__EMPTY.includes('-')) {\n    continue;\n  }\n\n  // 3. PARSEO SEGURO: Convertimos los strings de los índices a números reales\n  const ieeGlobal = parseFloat(data.__EMPTY_1);\n  const comercio = parseFloat(data.__EMPTY_2);\n  const construccion = parseFloat(data.__EMPTY_3);\n  const manufactura = parseFloat(data.__EMPTY_4);\n  const servicios = parseFloat(data.__EMPTY_5);\n  \n  // Guardamos la fecha fiscal limpia en una constante\n  const fechaFiscalLimpia = data.__EMPTY.trim();\n\n  // 4. MAPEO HOMOGÉNEO: Estructuramos con el mismo estándar de la base de datos\n  listaConsolidada.push({\n    json: {\n      INDICADOR: \"EXPECTATIVAS_EMPRESARIALES\",\n      FECHA_FISCAL: fechaFiscalLimpia,   // ◄--- NUEVA: Expuesta a nivel raíz para evitar duplicados\n      FECHA_EXTRACCION: new Date(),     // Objeto Date nativo de JS para evitar error NJS-011\n      ESTADO: \"COMPLETO\",\n      NECESITA_RESPALDO: 0,             // Corregido: entero estático (0 = No necesita respaldo)\n      DETALLE_ERROR: \"\",\n      // Todo el vector sectorial empaquetado en el documento JSON nativo\n      DATOS_JSON: JSON.stringify({\n        fecha_fiscal: fechaFiscalLimpia,\n        iee_global: isNaN(ieeGlobal) ? null : ieeGlobal,\n        comercio: isNaN(comercio) ? null : comercio,\n        construccion: isNaN(construccion) ? null : construccion,\n        manufactura: isNaN(manufactura) ? null : manufactura,\n        servicios: isNaN(servicios) ? null : servicios,\n        fuente: \"Banco Central del Ecuador\",\n        ruta_logica: \"BCE/SECTOR_REAL/EXPECTATIVAS_EMPRESARIALES\" // Estructura de carpetas virtuales\n      })\n    }\n  });\n}\n\nreturn listaConsolidada;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        336,
+        -176
+      ],
+      "id": "eca6ae2d-96da-402e-a3f5-0648f1861e24",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "url": "https://contenido.bce.fin.ec/documentos/PublicacionesNotas/Catalogo/Encuestas/EOE/IEE_Nueva_Metodologia.xlsx",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -128,
+        -32
+      ],
+      "id": "b18c89e1-1dad-44a7-a766-d1a4ee2a5543",
+      "name": "HTTP BCE — Sector Real",
+      "retryOnFail": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "options": {
+          "headerRow": true
+        }
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        96,
+        -128
+      ],
+      "id": "74cd842e-a590-4728-bf8e-64137ea48b2d",
+      "name": "Extraer excel"
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "schema": {
+          "__rl": true,
+          "value": "ADMIN",
+          "mode": "list",
+          "cachedResultName": "ADMIN"
+        },
+        "table": {
+          "__rl": true,
+          "value": "TAB_CONSOLIDADO_MACRO",
+          "mode": "list",
+          "cachedResultName": "TAB_CONSOLIDADO_MACRO"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {
+            "NECESITA_RESPALDO": 0,
+            "ID": 0
+          },
+          "matchingColumns": [
+            "FECHA_FISCAL",
+            "INDICADOR"
+          ],
+          "schema": [
+            {
+              "id": "DATOS_JSON",
+              "displayName": "DATOS_JSON",
+              "required": false,
+              "display": true,
+              "type": "object",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "DETALLE_ERROR",
+              "displayName": "DETALLE_ERROR",
+              "required": false,
+              "display": true,
+              "type": "string",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ESTADO",
+              "displayName": "ESTADO",
+              "required": true,
+              "display": true,
+              "type": "string",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "FECHA_EXTRACCION",
+              "displayName": "FECHA_EXTRACCION",
+              "required": true,
+              "display": true,
+              "type": "dateTime",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "FECHA_FISCAL",
+              "displayName": "FECHA_FISCAL",
+              "required": false,
+              "display": true,
+              "type": "string",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ID",
+              "displayName": "ID",
+              "required": false,
+              "display": true,
+              "type": "number",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "INDICADOR",
+              "displayName": "INDICADOR",
+              "required": true,
+              "display": true,
+              "type": "string",
+              "defaultMatch": true,
+              "removed": false
+            },
+            {
+              "id": "NECESITA_RESPALDO",
+              "displayName": "NECESITA_RESPALDO",
+              "required": true,
+              "display": true,
+              "type": "number",
+              "defaultMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.oracleDatabase",
+      "typeVersion": 1,
+      "position": [
+        544,
+        -176
+      ],
+      "id": "97e15503-da8e-4a70-aef2-007c3ffac4c5",
+      "name": "Insert or update rows in a table",
+      "credentials": {
+        "oracleDBApi": {
+          "id": "qByKeiuIh1btIyqA",
+          "name": "Oracle Database Credenciales"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP BCE — Sector Real",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP BCE — Sector Real": {
+      "main": [
+        [
+          {
+            "node": "Extraer excel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer excel": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Insert or update rows in a table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "39e855cf-944c-4e08-9f3f-28f1d4fdc444",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c1d061b2eef4d25bab4434dcfc4820ff8a619e005912af90edb2c268ae6de2cb"
+  },
+  "id": "hcPly88X1QBzk8Cc",
+  "tags": []
+}
